@@ -27,7 +27,10 @@
 ;;; Commentary:
 
 ;; A major mode for editing justfiles, as defined by the tool "just"
-;; (https://github.com/casey/just), powered by a treesitter parser.
+;; (https://github.com/casey/just), powered by a tree-sitter parser.
+;;
+;; Install the needed tree-sitter grammar by running
+;; "just-ts-mode-install-grammar".
 
 ;;; Code:
 
