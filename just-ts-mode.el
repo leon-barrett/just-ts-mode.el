@@ -41,7 +41,7 @@
 ;; TODO Use nested modes for rule bodies so e.g. we can have Python mode for a Python script?
 
 (defgroup just-ts nil
-  "Major mode for editing just files"
+  "Mode \"just-ts-mode\" is a major mode for editing just files."
   :group 'languages
   :prefix "just-ts-"
   :link '(url-link :tag "Site" "https://github.com/leon-barrett/just-ts-mode.el")
@@ -233,8 +233,7 @@
 ;; (which is licensed GPL 2 or later)
 (defvar just-ts-indent-offset 4 "Justfile indentation offset.")
 (defun just-ts-backspace-whitespace-to-tab-stop ()
-  "Delete whitespace backwards to the next tab-stop, otherwise delete one
-character."
+  "Delete whitespace backwards to the next tab-stop, otherwise delete one character."
   (interactive)
   (if (or indent-tabs-mode
           (region-active-p)
@@ -253,8 +252,10 @@ character."
           (call-interactively #'backward-delete-char))))))
 
 (defun just-ts-indent-start-recipe-body (node parent bol)
-    "At the beginning of a recipe, indent 4 spaces. (I don't know why the node
-is nil here.)"
+    "Identify the beginning of a recipe body.
+
+Identify if BOL is at a recipe body start, where PARENT is the file and NODE is
+nil for some reason."
     (let ((actual-node (treesit-node-at bol)))
       (and (not node)
            (equal (treesit-node-type parent) "source_file")
@@ -268,7 +269,7 @@ is nil here.)"
      (,#'just-ts-indent-start-recipe-body column-0 just-ts-indent-offset))))
 
 (defun just-ts-setup ()
-  "Set up treesit for just-ts-mode."
+  "Set up treesit for \"just-ts-mode\"."
   (setq-local comment-start "#")
   (setq-local treesit-font-lock-feature-list
               '((comment builtin keyword string string-interpolation)
