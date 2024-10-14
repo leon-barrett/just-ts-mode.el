@@ -1,7 +1,8 @@
 # just-ts-mode.el - Emacs mode for justfiles using Tree-Sitter
 
 This Emacs mode does basic highlighting and indentation for justfiles, as used
-by [just](https://github.com/casey/just), using Tree-Sitter.
+by [just](https://github.com/casey/just), using a Tree-Sitter grammar from
+[tree-sitter-just](https://github.com/IndianBoy42/tree-sitter-just).
 
 # Features
 
