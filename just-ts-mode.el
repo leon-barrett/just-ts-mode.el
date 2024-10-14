@@ -254,22 +254,29 @@
             (backward-delete-char (- (match-end 1) (match-beginning 1)))
           (call-interactively #'backward-delete-char))))))
 
-(defun just-ts-indent-start-recipe-body (node parent bol)
-    "Identify the beginning of a recipe body.
+(defun just-ts-indent-in-recipe-body (_node _parent _bol)
+    "Identify if the cursor is in a recipe body.
 
 Identify if BOL is at a recipe body start, where PARENT is the file and NODE is
 nil for some reason."
-    (let ((actual-node (treesit-node-at bol)))
-      (and (not node)
-           (equal (treesit-node-type parent) "source_file")
-           (equal (treesit-node-type actual-node) "recipe"))))
+    (save-excursion
+      (forward-line -1)
+      (let* ((prev-line-node (treesit-node-at (pos-bol)))
+             (prev-line-parent (treesit-node-parent prev-line-node))
+             (prev-line-gp-type (treesit-node-type (treesit-node-parent prev-line-parent)))
+             (prev-line-type (treesit-node-type prev-line-parent)))
+        (or
+         ;; The next line after the header
+         (equal prev-line-type "recipe_header")
+         ;; The next line after a recipe line
+         (equal prev-line-type "recipe_line")
+         ;; The next line after a prefixed line e.g. starting with "@"
+         (equal prev-line-gp-type "recipe_line")))))
 
 (defvar just-ts-indent-rules
   `((just
-     ;; In a recipe, indent like the previous line
-     ((parent-is "recipe_body") prev-sibling 0)
-     ;; At the beginning of a recipe, indent 4 spaces. (I don't know why the node is nil here.)
-     (,#'just-ts-indent-start-recipe-body column-0 just-ts-indent-offset))))
+     ;; In a recipe, indent by tab-width.
+     (,#'just-ts-indent-in-recipe-body column-0 tab-width))))
 
 (defun just-ts-setup ()
   "Set up treesit for \"just-ts-mode\"."
