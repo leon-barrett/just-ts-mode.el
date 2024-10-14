@@ -9,7 +9,7 @@
 ;; Keywords: files languages tools treesitter
 ;; URL: https://github.com/leon-barrett/just-ts-mode.el
 
-;; This file is *NOT* part of GNU Emacs
+;; This file is *NOT* part of GNU Emacs.
 
 ;; This package is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -236,7 +236,7 @@
 ;; (which is licensed GPL 2 or later)
 (defvar just-ts-indent-offset 4 "Justfile indentation offset.")
 (defun just-ts-backspace-whitespace-to-tab-stop ()
-  "Delete whitespace backwards to the next tab-stop, otherwise delete one character."
+  "Delete whitespace backwards to the next tab-stop, or delete one text char."
   (interactive)
   (if (or indent-tabs-mode
           (region-active-p)
