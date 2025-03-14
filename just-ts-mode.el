@@ -332,8 +332,6 @@ The function removes existing entries for the Just language in
 (provide 'just-ts-mode)
 
 ;;;###autoload
-(progn
-  (add-to-list 'auto-mode-alist '("/[Jj]ustfile\\'" . just-ts-mode))
-  (add-to-list 'auto-mode-alist '("\\.[Jj]ust\\(file\\)?\\'" . just-ts-mode)))
+(add-to-list 'auto-mode-alist '("/\\(?:\\.\\)?[jJ][uU][sS][tT][fF][iI][lL][eE]\\'" . just-ts-mode))
 
 ;;; just-ts-mode.el ends here
