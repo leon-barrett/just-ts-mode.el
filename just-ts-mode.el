@@ -252,7 +252,7 @@
       (setq movement (min (- p 1) movement))
       (save-match-data
         (if (string-match "[^\t ]*\\([\t ]+\\)$" (buffer-substring-no-properties (- p movement) p))
-            (backward-delete-char (- (match-end 1) (match-beginning 1)))
+            (delete-char (- (match-beginning 1) (match-end 1)))
           (call-interactively #'backward-delete-char))))))
 
 (defun just-ts-indent-in-recipe-body (_node _parent _bol)
