@@ -277,7 +277,7 @@ nil for some reason."
 (defvar just-ts-indent-rules
   `((just
      ;; In a recipe, indent by tab-width.
-     (,#'just-ts-indent-in-recipe-body column-0 tab-width))))
+     (,#'just-ts-indent-in-recipe-body column-0 just-ts-indent-offset))))
 
 (defun just-ts-setup ()
   "Set up treesit for \"just-ts-mode\"."
