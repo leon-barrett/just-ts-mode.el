@@ -235,7 +235,6 @@
 
 ;; from https://www.emacswiki.org/emacs/BackspaceWhitespaceToTabStop
 ;; (which is licensed GPL 2 or later)
-(defvar just-ts-indent-offset 4 "Justfile indentation offset.")
 (defun just-ts-backspace-whitespace-to-tab-stop ()
   "Delete whitespace backwards to the next tab-stop, or delete one text char."
   (interactive)
@@ -245,9 +244,9 @@
             (> (point) (progn (back-to-indentation)
                               (point)))))
       (call-interactively #'backward-delete-char-untabify)
-    (let ((movement (% (current-column) just-ts-indent-offset))
+    (let ((movement (% (current-column) tab-width))
           (p (point)))
-      (when (= movement 0) (setq movement just-ts-indent-offset))
+      (when (= movement 0) (setq movement tab-width))
       ;; Account for edge case near beginning of buffer
       (setq movement (min (- p 1) movement))
       (save-match-data
