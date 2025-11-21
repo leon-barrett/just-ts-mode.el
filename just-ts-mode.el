@@ -290,6 +290,7 @@ nil for some reason."
               (apply #'treesit-font-lock-rules
                      just-ts-font-lock-rules))
   (setq-local treesit-simple-indent-rules just-ts-indent-rules)
+  (local-set-key (kbd "C-c '") #'just-src-edit)
 
   (treesit-major-mode-setup))
 
@@ -327,6 +328,218 @@ The function removes existing entries for the Just language in
   ;; Install the grammar
   (treesit-install-language-grammar 'just))
 
+;;; Task body editing
+
+(defvar just-src-edit-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-x C-s") #'just-src-edit-save)
+    (define-key map (kbd "C-c '") #'just-src-edit-sync-and-exit)
+    (define-key map (kbd "C-c C-k") #'just-src-edit-abort)
+    map)
+  "Keymap for `just-src-edit-mode'.")
+
+(define-minor-mode just-src-edit-mode
+  "Minor mode for editing Just task bodies."
+  :init-value nil
+  :lighter " Just-Edit"
+  :keymap just-src-edit-mode-map)
+
+(defvar-local just-src-edit--original-buffer nil)
+(put 'just-src-edit--original-buffer 'permanent-local t)
+
+(defvar-local just-src-edit--beg-marker nil)
+(put 'just-src-edit--beg-marker 'permanent-local t)
+
+(defvar-local just-src-edit--end-marker nil)
+(put 'just-src-edit--end-marker 'permanent-local t)
+
+(defvar-local just-src-edit--indentation nil)
+(put 'just-src-edit--indentation 'permanent-local t)
+
+(defvar-local just-src-edit--task-name nil)
+(put 'just-src-edit--task-name 'permanent-local t)
+
+(defun just-src-edit--find-task-bounds ()
+  "Find the bounds of the task at point.
+Returns (task-name body-start body-end) or nil if not in a task."
+  (save-excursion
+    (let ((start-pos (point))
+          (task-regexp "^@?\\([A-Z_a-z][0-9A-Z_a-z-]*\\).*:[^=]")
+          task-name body-start body-end)
+
+      ;; Find the task we're currently in using the same regex as imenu
+      ;; Go back to find a task line
+      (while (and (not (bobp))
+                  (not (looking-at task-regexp)))
+        (forward-line -1))
+
+      ;; Task line found
+      (when (looking-at task-regexp)
+        (setq task-name (match-string 1))
+        (setq body-start (line-beginning-position 2))
+
+        ;; Find the next line with no indentation (column 0)
+        (forward-line 1)
+        (while (and (not (eobp))
+                    (not (and (not (looking-at "^\\s-*$")) ; not empty line
+                              (looking-at "^[^ \t\n]"))))  ; starts at column 0
+          (forward-line 1))
+
+        ;; Go back to find the last non-empty line before the unindented line
+        (forward-line -1)
+        (while (and (> (point) body-start)
+                    (looking-at "^\\s-*$"))
+          (forward-line -1))
+        (setq body-end (line-end-position))
+
+        ;; Ensure body-end is at least at body-start
+        (when (<= body-end body-start)
+          (setq body-end (save-excursion
+                           (goto-char body-start)
+                           (line-end-position))))
+
+        ;; Check if original point was within the task body
+        (when (and (>= start-pos body-start)
+                   (<= start-pos body-end))
+          (list task-name body-start body-end))))))
+
+(defun just-src-edit--calculate-indentation (start end)
+  "Calculate the common indentation for task body between START and END."
+  (save-excursion
+    (goto-char start)
+    (let ((min-indent most-positive-fixnum))
+      (while (< (point) end)
+        (when (not (looking-at "^\\s-*$"))  ; skip empty lines
+          (setq min-indent (min min-indent (current-indentation))))
+        (forward-line 1))
+      (if (= min-indent most-positive-fixnum) 0 min-indent))))
+
+(defun just-src-edit--remove-indentation (content indentation)
+  "Remove INDENTATION spaces from each line of CONTENT."
+  (let ((lines (split-string content "\n")))
+    (mapconcat
+     (lambda (line)
+       (if (string-match-p "^\\s-*$" line)
+           line
+         (if (and (>= (length line) indentation)
+                  (string-prefix-p (make-string indentation ?\s) line))
+             (substring line indentation)
+           line)))
+     lines
+     "\n")))
+
+(defun just-src-edit--add-indentation (content indentation)
+  "Add INDENTATION spaces to each line of CONTENT."
+  (let ((lines (split-string content "\n"))
+        (indent-str (make-string indentation ?\s)))
+    (mapconcat
+     (lambda (line)
+       (if (string-match-p "^\\s-*$" line)
+           line
+         (concat indent-str line)))
+     lines
+     "\n")))
+
+(defun just-src-edit ()
+  "Edit the task body at point in a dedicated buffer."
+  (interactive)
+  (let ((task-info (just-src-edit--find-task-bounds)))
+    (unless task-info
+      (user-error "Not in a task body"))
+
+    (let* ((task-name (nth 0 task-info))
+           (body-start (nth 1 task-info))
+           (body-end (nth 2 task-info))
+           (original-buffer (current-buffer))
+           (indentation (just-src-edit--calculate-indentation body-start body-end))
+           (content (buffer-substring-no-properties body-start body-end))
+           (clean-content (just-src-edit--remove-indentation content indentation))
+           (edit-buffer (generate-new-buffer (format "*Just Task: %s*" task-name))))
+
+      ;; Switch to edit buffer
+      (pop-to-buffer edit-buffer)
+
+      ;; Insert content and set up buffer
+      (insert clean-content)
+      (goto-char (point-min))
+
+      ;; Ensure buffer ends with newline
+      (goto-char (point-max))
+      (unless (and (> (point-max) (point-min))
+                   (= (char-before) ?\n))
+        (insert "\n"))
+      (goto-char (point-min))
+
+      ;; Detect and set appropriate mode
+      (if (string-match "^#!" clean-content)
+          (normal-mode)
+        (sh-mode))
+
+      ;; Set up buffer-local variables
+      (setq just-src-edit--original-buffer original-buffer)
+      (setq just-src-edit--beg-marker (with-current-buffer original-buffer
+                                        (copy-marker body-start)))
+      (setq just-src-edit--end-marker (with-current-buffer original-buffer
+                                        (copy-marker body-end t)))
+      (setq just-src-edit--indentation indentation)
+      (setq just-src-edit--task-name task-name)
+
+      ;; Enable the minor mode for keybindings
+      (just-src-edit-mode 1)
+
+      ;; Show helpful message
+      (message "Edit task '%s'. %s" task-name (just-src-edit--describe-bindings)))))
+
+(defun just-src-edit--describe-bindings ()
+  "Return a string describing the current key bindings for just-src-edit-mode."
+  (let ((sync-key (substitute-command-keys "\\[just-src-edit-sync-and-exit]"))
+        (save-key (substitute-command-keys "\\[just-src-edit-save]"))
+        (abort-key (substitute-command-keys "\\[just-src-edit-abort]")))
+    (format "%s to sync and exit, %s to save, %s to abort"
+            sync-key save-key abort-key)))
+
+(defun just-src-edit-save ()
+  "Save the edited task back to the original buffer and file."
+  (interactive)
+  (just-src-edit--sync-to-original t))
+
+(defun just-src-edit-sync-and-exit ()
+  "Sync changes to original buffer and exit edit buffer."
+  (interactive)
+  (just-src-edit--sync-to-original nil)
+  (quit-window t)
+  (message "Synced changes to original buffer"))
+
+(defun just-src-edit-abort ()
+  "Abort editing without saving changes."
+  (interactive)
+  (quit-window t))
+
+(defun just-src-edit--sync-to-original (save-file)
+  "Sync the edited content back to the original buffer.
+If SAVE-FILE is non-nil, also save the original buffer."
+  (unless (and just-src-edit--original-buffer
+               (buffer-live-p just-src-edit--original-buffer))
+    (error "Original buffer no longer exists"))
+
+  (let ((content (string-trim-right (buffer-string) "\n+"))
+        (original-buf just-src-edit--original-buffer)
+        (beg just-src-edit--beg-marker)
+        (end just-src-edit--end-marker)
+        (indent just-src-edit--indentation))
+
+    (with-current-buffer original-buf
+      (save-excursion
+        (let ((indented-content (just-src-edit--add-indentation content indent)))
+          (goto-char beg)
+          (delete-region beg end)
+          (insert indented-content)
+          (set-marker end (point))))
+
+      (when save-file
+        (save-buffer)))
+
+    (set-buffer-modified-p nil)))
 
 
 (provide 'just-ts-mode)
