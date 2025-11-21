@@ -290,7 +290,6 @@ nil for some reason."
               (apply #'treesit-font-lock-rules
                      just-ts-font-lock-rules))
   (setq-local treesit-simple-indent-rules just-ts-indent-rules)
-  (local-set-key (kbd "C-c '") #'just-src-edit)
 
   (treesit-major-mode-setup))
 
@@ -302,7 +301,15 @@ nil for some reason."
     (error "Tree-Sitter for `just' isn't available"))
 
   (treesit-parser-create 'just)
-  (just-ts-setup))
+  (just-ts-setup)
+
+  ;; Imenu
+  (setq-local imenu-generic-expression
+              '(("setting" "^set +\\([A-Z_a-z][0-9A-Z_a-z-]*\\)\\(?:\\'\\|$\\| \\|:=\\)" 1)
+                ("variable" "^\\(?:export +\\)?\\([A-Z_a-z][0-9A-Z_a-z-]*\\) *:=" 1)
+                ("task" "^\\(?:alias +\\)?@?\\([A-Z_a-z][0-9A-Z_a-z-]*\\).*:[^=]" 1)))
+
+  (local-set-key (kbd "C-c '") #'just-src-edit))
 
 
 
